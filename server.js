@@ -112,7 +112,7 @@ async function saveSession(session, bytes, ext) {
 }
 async function readSessionAudio(session) {
   if (SUPABASE_ENABLED) {
-    const response = await supabaseRequest(`/storage/v1/object/${SUPABASE_BUCKET}/${session.audio_path}`);
+    const response = await supabaseRequest(`/storage/v1/object/authenticated/${SUPABASE_BUCKET}/${session.audio_path}`);
     return Buffer.from(await response.arrayBuffer());
   }
   const files = await fs.readdir(AUDIO_DIR).catch(() => []);
@@ -238,3 +238,5 @@ fs.mkdir(DATA_DIR, { recursive: true }).then(() => {
     else res.destroy();
   })).listen(PORT, '0.0.0.0', () => console.log(`Unprompted is ready on http://localhost:${PORT}`));
 });
+
+
