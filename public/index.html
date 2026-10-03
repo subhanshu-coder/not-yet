@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f4ef"><meta name="description" content="Spin a thoughtful topic, speak off the cuff, and keep your practice in one place.">
+  <title>Unprompted — find your voice</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#home" aria-label="Unprompted home"><span class="brand-mark"><svg viewBox="0 0 32 32" fill="none"><path d="M8 18c0 5 3 8 8 8s8-3 8-8V7h-4v11c0 2.6-1.4 4-4 4s-4-1.4-4-4V7H8v11Z" fill="currentColor"/><path d="M23 5h4v4h-4z" fill="#D3F268"/></svg></span><span>unprompted<span class="brand-period">.</span></span></a>
+      <div class="workspace-label">YOUR WORKSPACE</div>
+      <nav class="side-nav" aria-label="Main navigation">
+        <a href="#home" class="nav-link active" data-page="home"><span class="nav-icon">◫</span> Practice <span class="nav-arrow">↗</span></a>
+        <a href="#library" class="nav-link" data-page="library"><span class="nav-icon">▤</span> My recordings <span class="nav-count" id="navCount">0</span></a>
+      </nav>
+      <div class="side-bottom"><div class="side-tip"><span class="tip-spark">✳</span><p><strong>A little practice goes a long way.</strong><br>One minute. One idea. Your voice.</p></div><div class="profile-row"><div class="avatar">Y</div><div class="profile-copy"><strong>Your space</strong><span>Just for you</span></div><span class="profile-menu">•••</span></div></div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar"><div class="breadcrumb"><span>Workspace</span><span class="crumb-slash">/</span><strong id="pageCrumb">Practice</strong></div><div class="top-actions"><span class="saved-indicator"><i></i> Your practice, saved privately</span><button class="icon-button" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" id="helpBtn">?</button></div></header>
+      <section class="page-view" id="homePage">
+        <div class="welcome-line"><div><div class="eyebrow"><span class="eyebrow-dot"></span> YOUR DAILY SPEAKING STUDIO</div><h1>Find your <span>voice.</span></h1><p class="intro">A thought-provoking topic is one spin away. Take a breath, gather a thought, and let it out.</p></div><div class="date-chip"><span class="date-icon">✳</span><span id="todayDate">A fresh start</span></div></div>
+        <div class="practice-grid">
+          <section class="topic-card" aria-label="Topic generator">
+            <div class="card-topline"><div><span class="section-kicker">THE TOPIC GENERATOR</span><h2>Your next thought starts here.</h2></div><div class="orbit-mark" aria-hidden="true"><span>✳</span></div></div>
+            <div class="topic-controls"><div class="category-wrap"><label for="categorySelect">PICK A LANE</label><div class="select-shell"><span class="select-glyph">◈</span><select id="categorySelect"><option value="General">General</option><option value="Everyday life">Everyday life</option><option value="Big ideas">Big ideas</option><option value="Culture">Culture</option><option value="Work & growth">Work & growth</option><option value="Silly & strange">Silly & strange</option></select><span class="chevron">⌄</span></div></div><div class="mode-wrap"><label>YOUR MODE</label><div class="mode-switch"><button class="mode-btn selected" data-mode="off">✦ <span>Off the cuff</span></button><button class="mode-btn" data-mode="deep">⌕ <span>Deep research</span></button></div></div></div>
+            <div class="topic-stage" id="topicStage"><div class="topic-orbit orbit-one"></div><div class="topic-orbit orbit-two"></div><div class="topic-content"><div class="topic-tag"><span class="tag-spark">✳</span><span id="topicCategory">READY WHEN YOU ARE</span></div><h3 id="topicText">What’s something you<br>changed your mind about?</h3><p id="topicHint">No perfect answer. Just yours.</p></div><div class="stage-index" id="stageIndex">01 <span>/</span> ∞</div></div>
+            <div class="topic-footer"><button class="spin-btn" id="spinBtn"><span class="spin-icon">↻</span><span id="spinLabel">Spin for a topic</span><span class="btn-shortcut">SPACE</span></button><div class="spin-note"><span class="keyboard-glyph">⏎</span> Keep it spontaneous</div></div>
+          </section>
+          <section class="record-card" aria-label="Voice recording studio">
+            <div class="record-header"><div><span class="section-kicker">YOUR SPEAKING STUDIO</span><h2>Say it out loud.</h2></div><span class="live-pill"><i></i> READY</span></div>
+            <div class="record-canvas" id="recordCanvas"><div class="sound-rings"><div class="ring ring-outer"></div><div class="ring ring-inner"></div><button class="mic-button" id="recordBtn" aria-label="Start recording"><span class="mic-icon"><svg viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="record-dot"></span></button></div><div class="canvas-text"><strong id="recordStatus">Your mic is ready</strong><span id="recordSubtext">Pick a topic, then tap to begin</span></div><div class="timer" id="timer">00:00</div></div>
+            <div class="waveform" id="waveform" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="record-actions"><span class="record-hint" id="recordHint">Up to 60 minutes per take</span><button class="stop-btn" id="stopBtn" disabled><span class="stop-square"></span> Finish take</button></div>
+            <div class="record-footnote"><span class="privacy-icon">◉</span> Saved to your private practice library</div>
+          </section>
+        </div>
+        <section class="recent-section"><div class="section-heading"><div><span class="section-kicker">YOUR JOURNEY</span><h2>Recent reflections</h2></div><button class="text-link" data-goto="library">View all <span>↗</span></button></div><div class="recent-list" id="recentList"><div class="empty-row"><div class="empty-icon">✳</div><div><strong>Your first reflection is waiting.</strong><span>Spin a topic and record your thoughts to start your library.</span></div></div></div></section>
+        <footer class="page-footer"><span>MADE FOR THE MOMENTS BETWEEN THINKING AND SPEAKING</span><span>Take your time. Find your words. <b>✳</b></span></footer>
+      </section>
+      <section class="page-view library-view hidden" id="libraryPage"><div class="library-heading"><div><div class="eyebrow"><span class="eyebrow-dot"></span> YOUR PERSONAL ARCHIVE</div><h1>My <span>recordings.</span></h1><p class="intro">Every thought you gave a voice. All in one place.</p></div><div class="library-stat"><strong id="libraryTotal">00</strong><span>SESSIONS SAVED</span></div></div><div class="library-toolbar"><div class="search-wrap"><span>⌕</span><input id="searchInput" type="search" placeholder="Find a topic..." aria-label="Search recordings"></div><select id="filterCategory" aria-label="Filter by topic category"><option value="all">All categories</option><option>General</option><option>Everyday life</option><option>Big ideas</option><option>Culture</option><option>Work & growth</option><option>Silly & strange</option></select><span class="library-sort">Newest first ↓</span></div><div class="library-list" id="libraryList"></div><footer class="page-footer"><span>MADE FOR THE MOMENTS BETWEEN THINKING AND SPEAKING</span><span>Take your time. Find your words. <b>✳</b></span></footer></section>
+    </main>
+  </div>
+  <div class="save-modal hidden" id="saveModal" role="dialog" aria-modal="true" aria-labelledby="saveTitle"><div class="modal-backdrop"></div><div class="modal-card"><button class="modal-close" id="modalClose" aria-label="Close">×</button><div class="modal-badge">✳</div><span class="section-kicker">NICE WORK SHOWING UP</span><h2 id="saveTitle">Keep this reflection?</h2><p class="modal-topic" id="modalTopic"></p><label for="sessionNotes">A note for future you <span>OPTIONAL</span></label><textarea id="sessionNotes" maxlength="4000" placeholder="A thought you want to remember, or just leave blank..."></textarea><div class="modal-actions"><button class="discard-btn" id="discardBtn">Let it go</button><button class="save-btn" id="saveBtn">Save reflection <span>↗</span></button></div><div class="save-error" id="saveError"></div></div></div>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="help-modal hidden" id="helpModal" role="dialog" aria-modal="true"><div class="modal-backdrop"></div><div class="help-card"><button class="modal-close" id="helpClose" aria-label="Close">×</button><span class="section-kicker">QUICK KEYS</span><h2>Keep the flow.</h2><p><kbd>Space</kbd> Spin for a new topic</p><p><kbd>R</kbd> Start or stop recording</p><p><kbd>Esc</kbd> Close this window</p></div></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

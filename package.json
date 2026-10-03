@@ -1,0 +1,8 @@
+{
+  "name": "unprompted-speaking-practice",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Spin a speaking topic, record your practice, and keep your sessions in your own library.",
+  "scripts": { "start": "node server.js", "dev": "node --watch server.js" },
+  "engines": { "node": ">=20" }
+}
