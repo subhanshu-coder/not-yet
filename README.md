@@ -8,7 +8,7 @@ A personal speaking-practice studio. Spin a prompt, record a take, add an option
 - Microphone recording in the browser, a live timer, and a recording waveform
 - Persistent server-side audio files and session metadata, plus playback, search, filtering, notes, and deletion
 - A responsive interface with keyboard shortcuts (`Space` to spin, `R` to record, `Esc` to close)
-- No account, external database, API key, or application dependencies
+- No external database or application dependencies
 
 ## Run locally
 
@@ -25,18 +25,25 @@ Sessions are saved under `data/`: metadata in `data/sessions.json` and audio in 
 ## Run with Docker
 
 ```sh
-docker build -t unprompted .
-docker run --name unprompted -p 3000:3000 -v unprompted-data:/data unprompted
+Copy-Item .env.example .env
+# Edit .env and replace both example values with long, private secrets.
+docker compose up --build -d
 ```
 
-The named volume keeps recordings when the container is replaced. A Docker host with a persistent disk is required; ephemeral containers lose their data when removed.
+`docker compose` keeps recordings in a named volume when the container is replaced. For production, set `APP_PASSWORD` to a unique password with at least 12 characters and set `SESSION_SECRET` to a random secret with at least 32 characters. Production startup stops if either secret is missing or too short. The `.env` file is ignored by Git.
+
+Generate a session secret with Node.js:
+
+```sh
+node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
+```
 
 ## Deploying
 
-This app needs a persistent Node.js process and persistent disk for recordings. Deploy the repository to a VPS or a container host that offers persistent volumes. Map the volume to `/data` (or configure `DATA_DIR`) and expose port `3000` behind HTTPS. Serverless/static hosting with ephemeral filesystems does not persist uploaded recordings.
+This app needs a persistent Node.js process and persistent disk for recordings. Deploy the repository to a VPS or a container host that offers persistent volumes. Set `APP_PASSWORD` and `SESSION_SECRET` in the host's secret settings, mount a persistent volume at `/data`, and expose port `3000` behind HTTPS. The production login protects the session list, recording playback, and deletion API with an HTTP-only signed cookie. Serverless/static hosting with ephemeral filesystems does not persist uploaded recordings.
 
 ## Storage and privacy
 
-The server writes recordings to local disk and does not send them to a third-party API. The library is intended for a private, single-user server: it has no login or access control. Keep it on your own machine or behind a private network, or add authentication before exposing it to the public internet. Browser microphone access is requested only when recording starts.
+The server writes recordings to local disk and does not send them to a third-party API. This is a private, single-owner app. Browser microphone access is requested only when recording starts.
 
 Audio is stored in the browser's supported recording format (typically WebM/Opus). The app accepts recordings up to 80 MB and takes up to 60 minutes. Supported recording types on the backend are WebM, Ogg, MP4, WAV, and MP3.

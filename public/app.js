@@ -184,6 +184,16 @@ document.addEventListener('click', async event => {
 $('helpBtn').addEventListener('click', () => $('helpModal').classList.remove('hidden'));
 $('helpClose').addEventListener('click', () => $('helpModal').classList.add('hidden'));
 $('helpModal').addEventListener('click', event => { if (event.target.classList.contains('modal-backdrop')) $('helpModal').classList.add('hidden'); });
+$('loginForm').addEventListener('submit', async event => {
+  event.preventDefault(); const button = $('loginButton'); const input = $('loginPassword');
+  button.disabled = true; $('loginError').textContent = '';
+  try {
+    const response = await fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: input.value }) });
+    const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not sign in.');
+    $('loginScreen').classList.add('hidden'); input.value = ''; await loadSessions();
+  } catch (error) { $('loginError').textContent = error.message; input.select(); }
+  finally { button.disabled = false; }
+});
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') { $('saveModal').classList.add('hidden'); $('helpModal').classList.add('hidden'); }
   if (event.code === 'Space' && !['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement.tagName) && $('saveModal').classList.contains('hidden')) { event.preventDefault(); spin(); }
@@ -193,4 +203,7 @@ document.addEventListener('keydown', event => {
 const today = new Date(); $('todayDate').textContent = today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 if (window.location.hash === '#library') setPage('library');
 if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { $('recordSubtext').textContent = 'Voice recording is not available in this browser'; $('recordBtn').disabled = true; }
-loadSessions();
+fetch('/api/auth').then(response => response.json()).then(auth => {
+  if (auth.authRequired && !auth.authenticated) { $('loginScreen').classList.remove('hidden'); $('loginPassword').focus(); }
+  else loadSessions();
+}).catch(() => toast('Could not connect to the app server.'));

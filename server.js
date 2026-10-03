@@ -9,7 +9,39 @@ const AUDIO_DIR = path.join(DATA_DIR, 'recordings');
 const INDEX_FILE = path.join(DATA_DIR, 'sessions.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MAX_AUDIO_BYTES = 80 * 1024 * 1024;
+const MAX_REQUEST_BYTES = Math.ceil(MAX_AUDIO_BYTES * 4 / 3) + 256_000;
 const MIME_EXT = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/wav': 'wav', 'audio/mpeg': 'mp3' };
+const APP_PASSWORD = process.env.APP_PASSWORD || '';
+const SESSION_SECRET = process.env.SESSION_SECRET || '';
+const AUTH_REQUIRED = Boolean(APP_PASSWORD || process.env.NODE_ENV === 'production');
+const SESSION_SECONDS = 7 * 24 * 60 * 60;
+if (process.env.NODE_ENV === 'production' && (APP_PASSWORD.length < 12 || SESSION_SECRET.length < 32)) {
+  throw new Error('Production requires APP_PASSWORD (at least 12 characters) and SESSION_SECRET (at least 32 characters).');
+}
+
+function cookieValue(req, name) {
+  const prefix = `${name}=`;
+  return (req.headers.cookie || '').split(';').map(value => value.trim()).find(value => value.startsWith(prefix))?.slice(prefix.length) || '';
+}
+function sessionToken() {
+  const payload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS })).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET || 'local-development-session').update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+function hasValidSession(req) {
+  if (!AUTH_REQUIRED) return true;
+  if (!SESSION_SECRET) return false;
+  const token = cookieValue(req, 'unprompted_session');
+  const [payload, signature, extra] = token.split('.');
+  if (!payload || !signature || extra) return false;
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest();
+  let actual;
+  try { actual = Buffer.from(signature, 'base64url'); } catch { return false; }
+  if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return false;
+  try { return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')).exp > Math.floor(Date.now() / 1000); }
+  catch { return false; }
+}
+function secureCookie(req) { return process.env.NODE_ENV === 'production' || req.headers['x-forwarded-proto'] === 'https' || Boolean(req.socket.encrypted); }
 
 async function readSessions() {
   try { return JSON.parse(await fs.readFile(INDEX_FILE, 'utf8')); }
@@ -24,7 +56,7 @@ function json(res, status, body) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
   res.end(JSON.stringify(body));
 }
-function readBody(req, limit = MAX_AUDIO_BYTES + 256_000) {
+function readBody(req, limit = MAX_REQUEST_BYTES) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
     req.on('data', chunk => {
@@ -38,16 +70,40 @@ function readBody(req, limit = MAX_AUDIO_BYTES + 256_000) {
 }
 function safeText(value, max) { return typeof value === 'string' ? value.trim().slice(0, max) : ''; }
 
+const failedLogins = new Map();
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (url.pathname.startsWith('/api/')) {
+    if (req.method === 'GET' && url.pathname === '/api/auth') return json(res, 200, { authRequired: AUTH_REQUIRED, authenticated: hasValidSession(req) });
+    if (req.method === 'POST' && url.pathname === '/api/auth') {
+      if (!AUTH_REQUIRED) return json(res, 200, { authenticated: true });
+      const address = req.socket.remoteAddress || 'unknown';
+      const attempts = failedLogins.get(address) || { count: 0, start: Date.now() };
+      if (Date.now() - attempts.start > 15 * 60 * 1000) { attempts.count = 0; attempts.start = Date.now(); }
+      if (attempts.count >= 10) return json(res, 429, { error: 'Too many attempts. Wait 15 minutes and try again.' });
+      let input;
+      try { input = JSON.parse((await readBody(req, 10_000)).toString('utf8')); }
+      catch { return json(res, 400, { error: 'Invalid sign-in request.' }); }
+      const candidate = Buffer.from(typeof input.password === 'string' ? input.password : '');
+      const expected = Buffer.from(APP_PASSWORD);
+      const valid = candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
+      if (!valid) { attempts.count++; failedLogins.set(address, attempts); return json(res, 401, { error: 'That password did not match. Try again.' }); }
+      failedLogins.delete(address);
+      res.setHeader('set-cookie', `unprompted_session=${sessionToken()}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_SECONDS}${secureCookie(req) ? '; Secure' : ''}`);
+      return json(res, 200, { authenticated: true });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/logout') {
+      res.setHeader('set-cookie', `unprompted_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secureCookie(req) ? '; Secure' : ''}`);
+      return json(res, 200, { authenticated: false });
+    }
+    if (AUTH_REQUIRED && !hasValidSession(req)) return json(res, 401, { error: 'Sign in to access your practice library.' });
     if (req.method === 'GET' && url.pathname === '/api/sessions') {
       const sessions = await readSessions();
       return json(res, 200, sessions.sort((a,b) => b.createdAt.localeCompare(a.createdAt)));
     }
     if (req.method === 'POST' && url.pathname === '/api/sessions') {
       let input;
-      try { input = JSON.parse((await readBody(req)).toString('utf8')); }
+      try { input = JSON.parse((await readBody(req, MAX_REQUEST_BYTES)).toString('utf8')); }
       catch (e) { return json(res, e.status || 400, { error: e.status === 413 ? 'Recording is too large. Keep it under 80 MB.' : 'Invalid session data.' }); }
       const topic = safeText(input.topic, 240);
       const audio = typeof input.audio === 'string' ? input.audio : '';
