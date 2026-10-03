@@ -148,6 +148,12 @@ function onRecordingStopped() {
   state.pendingMime = type.split(';')[0];
   const blob = new Blob(state.chunks, { type });
   if (!blob.size) { toast('No audio was captured. Check your microphone and try again.'); resetRecorder(); return; }
+  if (blob.size > 50 * 1024 * 1024) {
+    const href = URL.createObjectURL(blob); const link = document.createElement('a');
+    link.href = href; link.download = `unprompted-take-${Date.now()}.${type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm'}`;
+    document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(href), 1000);
+    toast('This take is over the free 50 MB limit, so a copy was downloaded. Record a shorter take to save it online.'); resetRecorder(); return;
+  }
   const reader = new FileReader(); reader.onload = () => { state.pendingAudio = reader.result; openSaveModal(); }; reader.readAsDataURL(blob);
 }
 function resetRecorder() {
