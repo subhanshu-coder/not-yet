@@ -9,6 +9,7 @@ A personal speaking-practice studio. Spin a prompt, record a take, add an option
 - Searchable session library with playback, notes, filters, and deletion
 - Single-owner password login for the hosted app
 - Responsive interface and keyboard shortcuts (`Space` to spin, `R` to record, `Esc` to close)
+- English speaking practice with focused follow-up prompts, a 10-minute preparation timer, and 2-, 3-, 5-minute or custom speaking turns
 
 ## Run locally
 
@@ -56,3 +57,4 @@ Use the service role key only on the server. The bucket is private, and the app'
 ## Storage and privacy
 
 In local mode, the server writes audio and session metadata to disk. With Supabase configured, audio goes to a private Storage bucket and session metadata goes to the `public.sessions` table. The browser only talks to this app; the Supabase service role key stays on the server. Supported formats include WebM, Ogg, MP4, WAV, and MP3. Recording length is capped at 60 minutes.
+
