@@ -52,7 +52,15 @@ const topics = {
 };
 
 const $ = id => document.getElementById(id);
-const state = { topic: null, mode: 'off', sessions: [], stream: null, recorder: null, chunks: [], startedAt: 0, elapsed: 0, timerInterval: null, pendingAudio: null, pendingMime: null, spinCount: 0, spinning: false };
+const state = { topic: null, mode: 'off', sessions: [], stream: null, recorder: null, chunks: [], startedAt: 0, elapsed: 0, timerInterval: null, prepInterval: null, prepRemaining: 600, talkSeconds: 180, phase: 'idle', pendingAudio: null, pendingMime: null, spinCount: 0, spinning: false };
+const englishPrompts = {
+  'General': ['What is your main point?', 'Can you give one real example?', 'What did this teach you?'],
+  'Everyday life': ['When did this happen?', 'What details can you describe?', 'Why does it matter to you?'],
+  'Big ideas': ['What do you believe?', 'What is one reason or example?', 'What might someone disagree with?'],
+  'Culture': ['What is the story behind it?', 'What detail stayed with you?', 'How did it change your view?'],
+  'Work & growth': ['What was the challenge?', 'What did you do next?', 'What would you do differently?'],
+  'Silly & strange': ['Set the scene for us.', 'What is the funniest detail?', 'How would you convince a friend?']
+};
 const supportedMime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'].find(type => window.MediaRecorder && MediaRecorder.isTypeSupported(type)) || '';
 
 function escapeText(value = '') { return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char])); }
@@ -96,8 +104,8 @@ document.querySelectorAll('[data-goto]').forEach(link => link.addEventListener('
 document.querySelectorAll('.mode-btn').forEach(button => button.addEventListener('click', () => {
   state.mode = button.dataset.mode;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('selected', b === button));
-  $('topicHint').textContent = state.mode === 'deep' ? 'Take a moment to gather your thoughts first.' : 'No perfect answer. Just yours.';
-  $('recordHint').textContent = state.mode === 'deep' ? 'Take a moment, then record your take' : 'Up to 60 minutes per take';
+  $('topicHint').textContent = state.mode === 'deep' ? 'Build a clear answer: point, example, and takeaway.' : 'No perfect answer. Just yours.';
+  $('recordHint').textContent = state.mode === 'deep' ? 'Use the prompts to structure your answer' : 'Spin a topic, then prepare your ideas';
 }));
 
 function spin() {
@@ -109,7 +117,10 @@ function spin() {
   state.spinning = true; $('topicStage').classList.add('is-spinning'); $('spinBtn').disabled = true;
   setTimeout(() => {
     state.topic = { text: pick[0], hint: pick[1], category };
-    $('topicCategory').textContent = category.toUpperCase(); $('topicText').textContent = pick[0]; $('topicHint').textContent = state.mode === 'deep' ? 'Take a moment to gather your thoughts first.' : pick[1];
+    $('topicCategory').textContent = category.toUpperCase(); $('topicText').textContent = pick[0]; $('topicHint').textContent = pick[1];
+    $('followupList').innerHTML = englishPrompts[category].map(prompt => `<li>${escapeText(prompt)}</li>`).join('');
+    $('englishFocus').textContent = `ENGLISH FOCUS · ${['Use “first”, “because”, and “finally”.','Try one new descriptive word.','Give a clear example and explain why it matters.'][state.spinCount % 3]}`;
+    clearInterval(state.prepInterval); state.prepRemaining = 600; state.phase = 'prep-ready'; renderPracticeTimer();
     state.spinCount++; $('stageIndex').innerHTML = `${String(state.spinCount).padStart(2, '0')} <span>/</span> ∞`;
     $('topicStage').classList.remove('is-spinning'); $('spinBtn').disabled = false;
     if ($('recordStatus').textContent === 'Your mic is ready') $('recordSubtext').textContent = 'Your topic is ready. Tap to begin.';
@@ -119,8 +130,41 @@ function spin() {
 $('spinBtn').addEventListener('click', spin);
 $('categorySelect').addEventListener('change', () => { if (state.topic) $('topicCategory').textContent = $('categorySelect').value.toUpperCase(); });
 
+function selectedTalkSeconds() {
+  const value = $('talkMinutes').value === 'custom' ? Number($('customMinutes').value) : Number($('talkMinutes').value);
+  return Math.max(1, Math.min(60, Number.isFinite(value) ? value : 3)) * 60;
+}
+function renderPracticeTimer() {
+  const prep = state.phase === 'idle' || state.phase === 'prep-ready' || state.phase === 'preparing';
+  $('phaseLabel').textContent = prep ? 'PREPARATION' : state.phase === 'talk-ready' ? 'READY TO SPEAK' : state.phase === 'speaking' ? 'SPEAKING' : 'SESSION COMPLETE';
+  $('phaseCountdown').textContent = formatTime(prep ? state.prepRemaining : state.phase === 'speaking' ? Math.max(0, state.talkSeconds - state.elapsed) : state.talkSeconds);
+  $('phaseHelp').textContent = prep ? 'Plan your opening, one example, and a closing thought.' : state.phase === 'talk-ready' ? 'Start recording when you are ready.' : state.phase === 'speaking' ? 'Keep going until the timer reaches zero.' : 'Great practice. Save your recording below.';
+  $('prepControl').classList.toggle('hidden', !prep || state.phase === 'idle');
+  $('prepControl').textContent = state.phase === 'preparing' ? 'Pause prep' : state.phase === 'prep-ready' ? 'Start prep' : 'Resume prep';
+  $('skipPrep').classList.toggle('hidden', !prep || state.phase === 'idle');
+  $('talkMinutes').disabled = state.phase === 'speaking'; $('customMinutes').disabled = state.phase === 'speaking';
+  $('recordHint').textContent = state.phase === 'talk-ready' ? `${Math.round(state.talkSeconds / 60)}-minute speaking turn` : state.phase === 'speaking' ? 'Speak naturally; timer stops your take' : 'Spin a topic, then prepare your ideas';
+}
+function beginPrep() {
+  if (!state.topic) { toast('Spin a topic before starting preparation.'); return; }
+  if (state.phase === 'preparing') { clearInterval(state.prepInterval); state.phase = 'prep-ready'; renderPracticeTimer(); return; }
+  state.phase = 'preparing'; renderPracticeTimer();
+  state.prepInterval = setInterval(() => {
+    state.prepRemaining = Math.max(0, state.prepRemaining - 1); renderPracticeTimer();
+    if (!state.prepRemaining) { clearInterval(state.prepInterval); state.phase = 'talk-ready'; renderPracticeTimer(); toast('Preparation complete. You are ready to speak.'); }
+  }, 1000);
+}
+$('prepControl').addEventListener('click', beginPrep);
+$('skipPrep').addEventListener('click', () => { clearInterval(state.prepInterval); state.phase = 'talk-ready'; state.talkSeconds = selectedTalkSeconds(); renderPracticeTimer(); });
+$('talkMinutes').addEventListener('change', () => {
+  $('customLengthWrap').classList.toggle('hidden', $('talkMinutes').value !== 'custom');
+  state.talkSeconds = selectedTalkSeconds(); renderPracticeTimer();
+});
+$('customMinutes').addEventListener('input', () => { state.talkSeconds = selectedTalkSeconds(); renderPracticeTimer(); });
+
 async function startRecording() {
   if (!state.topic) { spin(); toast('Spin for a topic before you start your take.'); return; }
+  if (state.phase !== 'talk-ready') { toast('Complete or skip your preparation before starting the speaking timer.'); return; }
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) { toast('Voice recording needs a modern browser and a secure connection.'); return; }
   try {
     state.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
@@ -128,8 +172,9 @@ async function startRecording() {
     state.recorder = new MediaRecorder(state.stream, supportedMime ? { mimeType: supportedMime } : undefined);
     state.recorder.ondataavailable = event => { if (event.data.size) state.chunks.push(event.data); };
     state.recorder.onstop = onRecordingStopped;
-    state.recorder.start(1000); state.startedAt = Date.now(); state.elapsed = 0;
-    state.timerInterval = setInterval(() => { state.elapsed = Math.floor((Date.now() - state.startedAt) / 1000); $('timer').textContent = formatTime(state.elapsed); if (state.elapsed >= 3600) stopRecording(); }, 250);
+    state.recorder.start(1000); state.startedAt = Date.now(); state.elapsed = 0; state.talkSeconds = selectedTalkSeconds(); state.phase = 'speaking'; renderPracticeTimer();
+    $('timer').textContent = formatTime(state.talkSeconds);
+    state.timerInterval = setInterval(() => { state.elapsed = Math.floor((Date.now() - state.startedAt) / 1000); const remaining = Math.max(0, state.talkSeconds - state.elapsed); $('timer').textContent = formatTime(remaining); renderPracticeTimer(); if (!remaining) stopRecording(); }, 250);
     document.body.classList.add('recording'); $('recordStatus').textContent = 'You’re on the record'; $('recordSubtext').textContent = 'One thought at a time. Keep going.';
     $('recordBtn').setAttribute('aria-label', 'Stop recording'); $('stopBtn').disabled = false; $('recordHint').textContent = 'Recording in progress'; document.querySelector('.live-pill').innerHTML = '<i></i> RECORDING';
   } catch (error) {
@@ -139,7 +184,7 @@ async function startRecording() {
 function stopRecording() {
   if (state.recorder?.state !== 'recording') return;
   state.recorder.stop(); clearInterval(state.timerInterval); state.stream?.getTracks().forEach(track => track.stop());
-  state.stream = null; $('stopBtn').disabled = true;
+  state.stream = null; $('stopBtn').disabled = true; state.phase = 'complete'; renderPracticeTimer();
 }
 function onRecordingStopped() {
   document.body.classList.remove('recording'); $('recordStatus').textContent = 'A thought, captured.'; $('recordSubtext').textContent = 'Take a breath. You did the work.';
@@ -158,7 +203,7 @@ function onRecordingStopped() {
 }
 function resetRecorder() {
   $('timer').textContent = '00:00'; $('recordStatus').textContent = 'Your mic is ready'; $('recordSubtext').textContent = 'Pick a topic, then tap to begin'; $('recordHint').textContent = 'Up to 60 minutes per take'; document.querySelector('.live-pill').innerHTML = '<i></i> READY';
-  state.recorder = null; state.pendingAudio = null; state.pendingMime = null;
+  state.recorder = null; state.pendingAudio = null; state.pendingMime = null; state.phase = 'prep-ready'; state.prepRemaining = 600; renderPracticeTimer();
 }
 $('recordBtn').addEventListener('click', () => state.recorder?.state === 'recording' ? stopRecording() : state.pendingAudio ? openSaveModal() : startRecording());
 $('stopBtn').addEventListener('click', stopRecording);
@@ -207,6 +252,7 @@ document.addEventListener('keydown', event => {
 });
 
 const today = new Date(); $('todayDate').textContent = today.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+renderPracticeTimer();
 if (window.location.hash === '#library') setPage('library');
 if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { $('recordSubtext').textContent = 'Voice recording is not available in this browser'; $('recordBtn').disabled = true; }
 fetch('/api/auth').then(response => response.json()).then(auth => {
